@@ -66,7 +66,11 @@ make dev-apply
    - `AWS_ACCESS_KEY_ID`
    - `AWS_SECRET_ACCESS_KEY`
 
-2. ワークフローの実行：
+2. **認証テストの実行**（推奨）：
+   - Actions タブから "AWS Credentials Test" を選択
+   - "Run workflow" で認証情報をテスト
+
+3. ワークフローの実行：
    - Actions タブから "Terragrunt CI/CD" を選択
    - "Run workflow" で環境とアクションを選択
 
@@ -76,6 +80,7 @@ make dev-apply
 - [USAGE.md](terragrunt/USAGE.md) - 基本的な使用方法
 - [MAKE_COMMANDS.md](terragrunt/MAKE_COMMANDS.md) - Makeコマンドリファレンス
 - [GITHUB_ACTIONS_README.md](GITHUB_ACTIONS_README.md) - GitHub Actions設定ガイド
+- [AWS_CREDENTIALS_TEST_GUIDE.md](.github/AWS_CREDENTIALS_TEST_GUIDE.md) - AWS認証テストガイド
 
 ## 📦 作成されるリソース
 
