@@ -76,9 +76,14 @@ dev-apply-auto: init
 
 # 開発環境 - 削除
 dev-destroy: init
-	@echo "⚠️  開発環境のリソースを削除しようとしています"
-	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
-	@export target=$${target:-all}; ./run.sh -e dev -a destroy
+	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+		echo "⚠️  開発環境のリソースを削除中（CI環境）"; \
+		export target=$${target:-all}; ./run.sh -e dev -a destroy -y; \
+	else \
+		echo "⚠️  開発環境のリソースを削除しようとしています"; \
+		read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
+		export target=$${target:-all}; ./run.sh -e dev -a destroy -y; \
+	fi
 
 # 本番環境 - プラン
 prod-plan: init
@@ -87,21 +92,36 @@ prod-plan: init
 
 # 本番環境 - 適用
 prod-apply: init
-	@echo "⚠️  本番環境にリソースを作成しようとしています"
-	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
-	@export target=$${target:-all}; ./run.sh -e prod -a apply
+	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+		echo "⚠️  本番環境にリソースを作成中（CI環境）"; \
+		export target=$${target:-all}; ./run.sh -e prod -a apply; \
+	else \
+		echo "⚠️  本番環境にリソースを作成しようとしています"; \
+		read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
+		export target=$${target:-all}; ./run.sh -e prod -a apply; \
+	fi
 
 # 本番環境 - 適用（自動承認）
 prod-apply-auto: init
-	@echo "⚠️  本番環境にリソースを作成しようとしています（自動承認）"
-	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
-	@export target=$${target:-all}; ./run.sh -e prod -a apply -y
+	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+		echo "⚠️  本番環境にリソースを作成中（CI環境、自動承認）"; \
+		export target=$${target:-all}; ./run.sh -e prod -a apply -y; \
+	else \
+		echo "⚠️  本番環境にリソースを作成しようとしています（自動承認）"; \
+		read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
+		export target=$${target:-all}; ./run.sh -e prod -a apply -y; \
+	fi
 
 # 本番環境 - 削除
 prod-destroy: init
-	@echo "🚨 本番環境のリソースを削除しようとしています"
-	@read -p "本当に続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
-	@export target=$${target:-all}; ./run.sh -e prod -a destroy
+	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+		echo "🚨 本番環境のリソースを削除中（CI環境）"; \
+		export target=$${target:-all}; ./run.sh -e prod -a destroy -y; \
+	else \
+		echo "🚨 本番環境のリソースを削除しようとしています"; \
+		read -p "本当に続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
+		export target=$${target:-all}; ./run.sh -e prod -a destroy -y; \
+	fi
 
 # 設定ファイルの検証
 validate:

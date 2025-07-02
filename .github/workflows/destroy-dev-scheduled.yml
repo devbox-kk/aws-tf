@@ -1,0 +1,95 @@
+name: Destroy Dev Environment (Scheduled)
+
+on:
+  schedule:
+    # 毎日18時（JST）= 日本時間18時にdev環境を削除
+    - cron: '0 9 * * *'  # UTC 09:00 (JST 18:00)
+  
+  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Target module to destroy'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - s3
+
+env:
+  AWS_DEFAULT_REGION: ap-northeast-1
+  TF_INPUT: false
+  TF_IN_AUTOMATION: true
+
+jobs:
+  destroy-dev:
+    name: Destroy Dev Environment
+    runs-on: ubuntu-latest
+    # environment: development  # 必要に応じてGitHub環境保護を設定
+    defaults:
+      run:
+        working-directory: terragrunt
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ~1.5.0
+
+    - name: Setup Terragrunt
+      run: |
+        wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v0.53.0/terragrunt_linux_amd64
+        chmod +x terragrunt_linux_amd64
+        sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_DEFAULT_REGION }}
+
+    - name: Check resources before destroy
+      run: |
+        export target=${{ github.event.inputs.target || 'all' }}
+        echo "=== 削除前のリソース確認 ==="
+        make status || echo "リソースが見つかりません"
+
+    - name: Destroy dev environment
+      run: |
+        export target=${{ github.event.inputs.target || 'all' }}
+        echo "=== Dev環境のリソースを削除中 ==="
+        make dev-destroy
+
+    - name: Verify destruction
+      run: |
+        export target=${{ github.event.inputs.target || 'all' }}
+        echo "=== 削除後の確認 ==="
+        make status || echo "正常に削除されました"
+
+    - name: Notify on failure
+      if: failure()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const title = '🚨 Dev環境の定期削除が失敗しました';
+          const body = `
+          **実行時刻**: ${new Date().toISOString()}
+          **対象**: ${{ github.event.inputs.target || 'all' }}
+          **ログ**: [実行ログを確認](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          
+          手動で確認と対応をお願いします。
+          `;
+          
+          // Issue作成（通知用）
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: body,
+            labels: ['infrastructure', 'urgent']
+          });

@@ -24,6 +24,9 @@ make dev-plan
 # 2. リソースを作成
 make dev-apply
 
+# 2-alternative. リソースを作成（自動承認）
+make dev-apply-auto
+
 # 3. リソースを削除（必要な場合）
 make dev-destroy
 ```
@@ -42,6 +45,9 @@ make prod-plan
 
 # リソース作成（確認プロンプト付き）
 make prod-apply
+
+# リソース作成（自動承認）
+make prod-apply-auto
 
 # リソース削除（確認プロンプト付き）
 make prod-destroy
@@ -133,3 +139,21 @@ make dev-destroy
 # 本番環境削除（慎重に）
 make prod-destroy
 ```
+
+## 自動承認について
+
+### 注意事項
+```bash
+# 自動承認オプション（-auto-approve）の使用について
+# 確認プロンプトをスキップするため、本番環境では特に注意が必要です
+
+# 開発環境での使用例
+make dev-apply-auto
+./run.sh -e dev -a apply -y
+
+# 本番環境での使用例（慎重に使用してください）
+make prod-apply-auto
+./run.sh -e prod -a apply -y
+```
+
+⚠️ **重要**: 自動承認オプションは確認プロンプトをスキップします。本番環境では特に慎重に使用してください。
