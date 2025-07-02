@@ -61,6 +61,9 @@ setup-state:
 
 # 開発環境 - プラン
 dev-plan: init
+	@echo "現在のディレクトリ: $(shell pwd)"
+	@echo "environments/devの内容:"
+	@ls -la environments/dev/ || echo "ディレクトリが見つかりません"
 	@echo "=== Terragrunt plan を実行中 (環境: dev) ==="
 	@export target=$${target:-all}; ./run.sh -e dev -a plan
 
