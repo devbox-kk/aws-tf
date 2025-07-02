@@ -11,7 +11,6 @@ TerragruntとTerraformを使用してS3バケットを管理するプロジェ�
 - [x] GitHub Actions CI/CD パイプライン
 - [x] 定期的なdev環境削除（コスト削減）
 - [x] プルリクエスト時の自動plan実行
-- [ ] CodeBuildでのデプロイ実行を検討
 - [ ] tokenをapptokenにする
 
 ## 📁 プロジェクト構造
