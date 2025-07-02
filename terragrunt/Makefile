@@ -149,19 +149,67 @@ clean:
 # 全環境のステータス確認
 status:
 	@echo "=== 環境ステータス確認 ==="
+	@echo "現在のディレクトリ: $$(pwd)"
+	@echo "environments/devの内容:"
+	@ls -la ./environments/dev || echo "開発環境ディレクトリが見つかりません"
+	@echo ""
 	@TARGET=$${target:-all}; \
 	if [ "$$TARGET" = "all" ]; then \
-		echo "開発環境 (全モジュール):"; \
-		(cd ./environments/dev && terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /') || echo "  リソースなし"; \
+		echo "=== 開発環境 (全モジュール) ==="; \
+		if [ -d "./environments/dev" ]; then \
+			echo "ディレクトリ: ./environments/dev"; \
+			cd ./environments/dev && \
+			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
+				echo "リソース一覧:"; \
+				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
+			else \
+				echo "  リソースなし、または初期化が必要"; \
+			fi; \
+		else \
+			echo "  開発環境ディレクトリが存在しません"; \
+		fi; \
 		echo ""; \
-		echo "本番環境 (全モジュール):"; \
-		(cd ./environments/prod && terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /') || echo "  リソースなし"; \
+		echo "=== 本番環境 (全モジュール) ==="; \
+		if [ -d "./environments/prod" ]; then \
+			echo "ディレクトリ: ./environments/prod"; \
+			cd ./environments/prod && \
+			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
+				echo "リソース一覧:"; \
+				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
+			else \
+				echo "  リソースなし、または初期化が必要"; \
+			fi; \
+		else \
+			echo "  本番環境ディレクトリが存在しません"; \
+		fi; \
 	else \
-		echo "開発環境 ($$TARGET モジュール):"; \
-		(cd "./environments/dev/$$TARGET" && terragrunt state list 2>/dev/null | sed 's/^/  /') || echo "  リソースなし"; \
+		echo "=== 開発環境 ($$TARGET モジュール) ==="; \
+		if [ -d "./environments/dev/$$TARGET" ]; then \
+			echo "ディレクトリ: ./environments/dev/$$TARGET"; \
+			cd "./environments/dev/$$TARGET" && \
+			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
+				echo "リソース一覧:"; \
+				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
+			else \
+				echo "  リソースなし、または初期化が必要"; \
+			fi; \
+		else \
+			echo "  モジュールディレクトリが存在しません: ./environments/dev/$$TARGET"; \
+		fi; \
 		echo ""; \
-		echo "本番環境 ($$TARGET モジュール):"; \
-		(cd "./environments/prod/$$TARGET" && terragrunt state list 2>/dev/null | sed 's/^/  /') || echo "  リソースなし"; \
+		echo "=== 本番環境 ($$TARGET モジュール) ==="; \
+		if [ -d "./environments/prod/$$TARGET" ]; then \
+			echo "ディレクトリ: ./environments/prod/$$TARGET"; \
+			cd "./environments/prod/$$TARGET" && \
+			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
+				echo "リソース一覧:"; \
+				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
+			else \
+				echo "  リソースなし、または初期化が必要"; \
+			fi; \
+		else \
+			echo "  モジュールディレクトリが存在しません: ./environments/prod/$$TARGET"; \
+		fi; \
 	fi
 
 # 開発環境での完全なワークフロー
