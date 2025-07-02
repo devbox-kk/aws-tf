@@ -68,6 +68,25 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Verify workspace structure
+      run: |
+        echo "=== ワークスペース構造確認 ==="
+        echo "Root directory:"
+        ls -la
+        echo ""
+        echo "Terragrunt directory:"
+        cd terragrunt && ls -la
+        echo ""
+        echo "Environments:"
+        ls -la terragrunt/environments/ || echo "environments not found"
+        echo ""
+        echo "Dev environment:"
+        ls -la terragrunt/environments/dev/ || echo "dev not found"
+        echo ""
+        echo "Prod environment:"
+        ls -la terragrunt/environments/prod/ || echo "prod not found"
+      working-directory: .
+
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -94,7 +113,13 @@ jobs:
         aws s3 ls || echo "No S3 access or no buckets"
 
     - name: Initialize Terragrunt
-      run: make init
+      run: |
+        echo "=== 初期化前の状態確認 ==="
+        ls -la
+        ls -la environments/ || echo "environments/ not found"
+        echo ""
+        echo "=== 初期化実行 ==="
+        make init
 
     - name: Setup state resources
       run: make setup-state
@@ -167,6 +192,15 @@ jobs:
     - name: Show status
       run: |
         export target=${{ github.event.inputs.target || 'all' }}
+        echo "=== デバッグ情報 ==="
+        echo "Working directory: $(pwd)"
+        echo "Available directories:"
+        ls -la environments/ || echo "environments/ not found"
+        echo "Target: $target"
+        echo "CI: $CI"
+        echo "GITHUB_ACTIONS: $GITHUB_ACTIONS"
+        echo ""
+        echo "=== ステータス確認実行 ==="
         make status
       if: always()
 
@@ -208,6 +242,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Verify workspace structure (scheduled)
+      run: |
+        echo "=== ワークスペース構造確認（スケジュール実行） ==="
+        echo "Root directory:"
+        ls -la
+        echo ""
+        echo "Terragrunt directory:"
+        cd terragrunt && ls -la
+        echo ""
+        echo "Environments:"
+        ls -la terragrunt/environments/ || echo "environments not found"
+      working-directory: .
+
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -228,13 +275,21 @@ jobs:
         aws-region: ap-northeast-1
 
     - name: Initialize Terragrunt
-      run: make init
+      run: |
+        echo "=== 初期化前の状態確認（スケジュール実行） ==="
+        ls -la
+        ls -la environments/ || echo "environments/ not found"
+        echo ""
+        echo "=== 初期化実行 ==="
+        make init
 
     - name: Check resources before destroy
       run: |
         export target=all
         echo "=== 削除前のリソース確認 ==="
-        make status || echo "リソースが見つかりません"
+        echo "Available environments:"
+        ls -la environments/ || echo "environments/ not found"
+        make status
 
     - name: Destroy dev environment
       run: |
@@ -246,4 +301,4 @@ jobs:
       run: |
         export target=all
         echo "=== 削除後の確認 ==="
-        make status || echo "正常に削除されました"
+        make status

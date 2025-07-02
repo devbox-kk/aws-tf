@@ -159,12 +159,23 @@ status:
 		if [ -d "./environments/dev" ]; then \
 			echo "ディレクトリ: ./environments/dev"; \
 			cd ./environments/dev && \
-			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
-				echo "リソース一覧:"; \
-				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
-			else \
-				echo "  リソースなし、または初期化が必要"; \
-			fi; \
+			( \
+				STATE_OUTPUT=$$(terragrunt state list --terragrunt-non-interactive 2>&1); \
+				STATE_EXIT_CODE=$$?; \
+				if [ $$STATE_EXIT_CODE -eq 0 ] && echo "$$STATE_OUTPUT" | grep -q .; then \
+					echo "リソース一覧:"; \
+					echo "$$STATE_OUTPUT" | sed 's/^/  /'; \
+				else \
+					if [ $$STATE_EXIT_CODE -ne 0 ]; then \
+						echo "  初期化エラー (exit code: $$STATE_EXIT_CODE)"; \
+						if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+							echo "  エラー詳細: $$STATE_OUTPUT"; \
+						fi; \
+					else \
+						echo "  リソースなし、または初期化が必要"; \
+					fi; \
+				fi; \
+			); \
 		else \
 			echo "  開発環境ディレクトリが存在しません"; \
 		fi; \
@@ -173,12 +184,23 @@ status:
 		if [ -d "./environments/prod" ]; then \
 			echo "ディレクトリ: ./environments/prod"; \
 			cd ./environments/prod && \
-			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
-				echo "リソース一覧:"; \
-				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
-			else \
-				echo "  リソースなし、または初期化が必要"; \
-			fi; \
+			( \
+				STATE_OUTPUT=$$(terragrunt state list --terragrunt-non-interactive 2>&1); \
+				STATE_EXIT_CODE=$$?; \
+				if [ $$STATE_EXIT_CODE -eq 0 ] && echo "$$STATE_OUTPUT" | grep -q .; then \
+					echo "リソース一覧:"; \
+					echo "$$STATE_OUTPUT" | sed 's/^/  /'; \
+				else \
+					if [ $$STATE_EXIT_CODE -ne 0 ]; then \
+						echo "  初期化エラー (exit code: $$STATE_EXIT_CODE)"; \
+						if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+							echo "  エラー詳細: $$STATE_OUTPUT"; \
+						fi; \
+					else \
+						echo "  リソースなし、または初期化が必要"; \
+					fi; \
+				fi; \
+			); \
 		else \
 			echo "  本番環境ディレクトリが存在しません"; \
 		fi; \
@@ -187,12 +209,23 @@ status:
 		if [ -d "./environments/dev/$$TARGET" ]; then \
 			echo "ディレクトリ: ./environments/dev/$$TARGET"; \
 			cd "./environments/dev/$$TARGET" && \
-			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
-				echo "リソース一覧:"; \
-				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
-			else \
-				echo "  リソースなし、または初期化が必要"; \
-			fi; \
+			( \
+				STATE_OUTPUT=$$(terragrunt state list --terragrunt-non-interactive 2>&1); \
+				STATE_EXIT_CODE=$$?; \
+				if [ $$STATE_EXIT_CODE -eq 0 ] && echo "$$STATE_OUTPUT" | grep -q .; then \
+					echo "リソース一覧:"; \
+					echo "$$STATE_OUTPUT" | sed 's/^/  /'; \
+				else \
+					if [ $$STATE_EXIT_CODE -ne 0 ]; then \
+						echo "  初期化エラー (exit code: $$STATE_EXIT_CODE)"; \
+						if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+							echo "  エラー詳細: $$STATE_OUTPUT"; \
+						fi; \
+					else \
+						echo "  リソースなし、または初期化が必要"; \
+					fi; \
+				fi; \
+			); \
 		else \
 			echo "  モジュールディレクトリが存在しません: ./environments/dev/$$TARGET"; \
 		fi; \
@@ -201,12 +234,23 @@ status:
 		if [ -d "./environments/prod/$$TARGET" ]; then \
 			echo "ディレクトリ: ./environments/prod/$$TARGET"; \
 			cd "./environments/prod/$$TARGET" && \
-			if terragrunt state list --terragrunt-non-interactive 2>/dev/null | grep -q .; then \
-				echo "リソース一覧:"; \
-				terragrunt state list --terragrunt-non-interactive 2>/dev/null | sed 's/^/  /'; \
-			else \
-				echo "  リソースなし、または初期化が必要"; \
-			fi; \
+			( \
+				STATE_OUTPUT=$$(terragrunt state list --terragrunt-non-interactive 2>&1); \
+				STATE_EXIT_CODE=$$?; \
+				if [ $$STATE_EXIT_CODE -eq 0 ] && echo "$$STATE_OUTPUT" | grep -q .; then \
+					echo "リソース一覧:"; \
+					echo "$$STATE_OUTPUT" | sed 's/^/  /'; \
+				else \
+					if [ $$STATE_EXIT_CODE -ne 0 ]; then \
+						echo "  初期化エラー (exit code: $$STATE_EXIT_CODE)"; \
+						if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
+							echo "  エラー詳細: $$STATE_OUTPUT"; \
+						fi; \
+					else \
+						echo "  リソースなし、または初期化が必要"; \
+					fi; \
+				fi; \
+			); \
 		else \
 			echo "  モジュールディレクトリが存在しません: ./environments/prod/$$TARGET"; \
 		fi; \
