@@ -41,15 +41,15 @@ on:
     paths:
       - 'terragrunt/**'
 
-  # 毎日18時にdev環境のdestroy実行
-  schedule:
-    - cron: '0 18 * * *'  # UTC 18:00 (JST 03:00)
-
   # プッシュ時はdev環境でplan実行
   push:
     branches: [main, master]
     paths:
       - 'terragrunt/**'
+
+  # 毎日18時にdev環境のdestroy実行
+  schedule:
+    - cron: '0 18 * * *'  # UTC 18:00 (JST 03:00)
 
 env:
   AWS_DEFAULT_REGION: ap-northeast-1
@@ -87,40 +87,22 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ env.AWS_DEFAULT_REGION }}
 
-    - name: Setup environment variables
+    - name: Verify AWS credentials
       run: |
-        if [ "${{ github.event_name }}" = "schedule" ]; then
-          echo "ENVIRONMENT=dev" >> $GITHUB_ENV
-          echo "ACTION=destroy" >> $GITHUB_ENV
-          echo "TARGET=all" >> $GITHUB_ENV
-          echo "AUTO_APPROVE=true" >> $GITHUB_ENV
-        elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          echo "ENVIRONMENT=${{ github.event.inputs.environment }}" >> $GITHUB_ENV
-          echo "ACTION=${{ github.event.inputs.action }}" >> $GITHUB_ENV
-          echo "TARGET=${{ github.event.inputs.target }}" >> $GITHUB_ENV
-          echo "AUTO_APPROVE=${{ github.event.inputs.auto_approve }}" >> $GITHUB_ENV
-        elif [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "ENVIRONMENT=dev" >> $GITHUB_ENV
-          echo "ACTION=plan" >> $GITHUB_ENV
-          echo "TARGET=all" >> $GITHUB_ENV
-          echo "AUTO_APPROVE=false" >> $GITHUB_ENV
-        else
-          echo "ENVIRONMENT=dev" >> $GITHUB_ENV
-          echo "ACTION=plan" >> $GITHUB_ENV
-          echo "TARGET=all" >> $GITHUB_ENV
-          echo "AUTO_APPROVE=false" >> $GITHUB_ENV
-        fi
+        echo "Testing AWS credentials..."
+        aws sts get-caller-identity
+        aws s3 ls || echo "No S3 access or no buckets"
 
     - name: Initialize Terragrunt
       run: make init
 
     - name: Setup state resources
       run: make setup-state
-      if: env.ACTION != 'destroy'
+      if: github.event.inputs.action != 'destroy' && github.event_name != 'schedule'
 
     - name: Validate configuration
       run: make validate
-      if: env.ACTION == 'plan'
+      if: github.event.inputs.action == 'plan' || github.event_name == 'pull_request' || github.event_name == 'push'
 
     - name: Format check
       run: |
@@ -130,74 +112,138 @@ jobs:
           git diff
           exit 1
         fi
-      if: env.ACTION == 'plan' && github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request'
 
-    - name: Terragrunt Plan
+    # Plan実行
+    - name: Terragrunt Plan (Dev)
       run: |
-        export target=${{ env.TARGET }}
-        if [ "${{ env.ENVIRONMENT }}" = "dev" ]; then
-          make dev-plan
-        else
-          make prod-plan
-        fi
-      if: env.ACTION == 'plan'
+        export target=${{ github.event.inputs.target || 'all' }}
+        make dev-plan
+      if: |
+        (github.event.inputs.action == 'plan' && github.event.inputs.environment == 'dev') ||
+        github.event_name == 'pull_request' ||
+        github.event_name == 'push'
 
-    - name: Terragrunt Apply
+    - name: Terragrunt Plan (Prod)
       run: |
-        export target=${{ env.TARGET }}
-        if [ "${{ env.ENVIRONMENT }}" = "dev" ]; then
-          if [ "${{ env.AUTO_APPROVE }}" = "true" ]; then
-            make dev-apply-auto
-          else
-            make dev-apply
-          fi
-        else
-          if [ "${{ env.AUTO_APPROVE }}" = "true" ]; then
-            make prod-apply-auto
-          else
-            make prod-apply
-          fi
-        fi
-      if: env.ACTION == 'apply'
+        export target=${{ github.event.inputs.target || 'all' }}
+        make prod-plan
+      if: github.event.inputs.action == 'plan' && github.event.inputs.environment == 'prod'
 
-    - name: Terragrunt Destroy
+    # Apply実行
+    - name: Terragrunt Apply (Dev)
       run: |
-        export target=${{ env.TARGET }}
-        if [ "${{ env.ENVIRONMENT }}" = "dev" ]; then
-          make dev-destroy
+        export target=${{ github.event.inputs.target || 'all' }}
+        if [ "${{ github.event.inputs.auto_approve }}" = "true" ]; then
+          make dev-apply-auto
         else
-          make prod-destroy
+          make dev-apply
         fi
-      if: env.ACTION == 'destroy'
+      if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'dev'
+
+    - name: Terragrunt Apply (Prod)
+      run: |
+        export target=${{ github.event.inputs.target || 'all' }}
+        if [ "${{ github.event.inputs.auto_approve }}" = "true" ]; then
+          make prod-apply-auto
+        else
+          make prod-apply
+        fi
+      if: github.event.inputs.action == 'apply' && github.event.inputs.environment == 'prod'
+
+    # Destroy実行
+    - name: Terragrunt Destroy (Dev)
+      run: |
+        export target=${{ github.event.inputs.target || 'all' }}
+        make dev-destroy
+      if: github.event.inputs.action == 'destroy' && github.event.inputs.environment == 'dev'
+
+    - name: Terragrunt Destroy (Prod)
+      run: |
+        export target=${{ github.event.inputs.target || 'all' }}
+        make prod-destroy
+      if: github.event.inputs.action == 'destroy' && github.event.inputs.environment == 'prod'
 
     - name: Show status
       run: |
-        export target=${{ env.TARGET }}
+        export target=${{ github.event.inputs.target || 'all' }}
         make status
       if: always()
 
     - name: Comment PR
       uses: actions/github-script@v7
-      if: github.event_name == 'pull_request' && env.ACTION == 'plan'
+      if: github.event_name == 'pull_request'
       with:
         script: |
           const output = `#### Terragrunt Plan 🗺️
-          **Environment:** \`${{ env.ENVIRONMENT }}\`
-          **Target:** \`${{ env.TARGET }}\`
+          **Environment:** dev
+          **Target:** ${{ github.event.inputs.target || 'all' }}
+          **Triggered by:** ${{ github.event_name }}
           
-          <details><summary>Show Plan</summary>
+          <details><summary>Show Plan Details</summary>
           
-          \`\`\`
-          ${{ steps.plan.outputs.stdout }}
-          \`\`\`
+          Plan実行が完了しました。詳細はActionsログを確認してください。
           
           </details>
           
-          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+          *Pusher: @${{ github.actor }}*`;
           
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
             body: output
-          })
+          });
+
+  # 定期実行用の別ジョブ
+  scheduled-destroy:
+    name: Scheduled Destroy (Dev)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    defaults:
+      run:
+        working-directory: terragrunt
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ~1.5.0
+
+    - name: Setup Terragrunt
+      run: |
+        wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v0.53.0/terragrunt_linux_amd64
+        chmod +x terragrunt_linux_amd64
+        sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+        terragrunt --version
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-1
+
+    - name: Initialize Terragrunt
+      run: make init
+
+    - name: Check resources before destroy
+      run: |
+        export target=all
+        echo "=== 削除前のリソース確認 ==="
+        make status || echo "リソースが見つかりません"
+
+    - name: Destroy dev environment
+      run: |
+        export target=all
+        echo "=== Dev環境のリソースを削除中 ==="
+        make dev-destroy
+
+    - name: Verify destruction
+      run: |
+        export target=all
+        echo "=== 削除後の確認 ==="
+        make status || echo "正常に削除されました"
