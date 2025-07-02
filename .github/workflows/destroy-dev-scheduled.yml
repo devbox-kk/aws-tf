@@ -38,13 +38,14 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: ~1.5.0
+        terraform_version: ~1.6.0
 
     - name: Setup Terragrunt
       run: |
-        wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v0.53.0/terragrunt_linux_amd64
+        wget -q https://github.com/gruntwork-io/terragrunt/releases/download/v0.82.3/terragrunt_linux_amd64
         chmod +x terragrunt_linux_amd64
         sudo mv terragrunt_linux_amd64 /usr/local/bin/terragrunt
+        terragrunt --version
 
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
