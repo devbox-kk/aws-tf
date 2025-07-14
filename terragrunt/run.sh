@@ -16,12 +16,15 @@ usage() {
     echo "  -y: 自動承認（apply/destroyで確認プロンプトをスキップ）"
     echo ""
     echo "環境変数:"
-    echo "  target: 対象モジュール (s3, all) - 未指定時は 'all'"
+    echo "  target: 対象モジュール (s3, ecr, vpc, ecs, all) - 未指定時は 'all'"
     echo ""
     echo "例:"
     echo "  $0 -e dev -a plan"
     echo "  $0 -e dev -a apply -y"
     echo "  target=s3 $0 -e dev -a plan"
+    echo "  target=ecr $0 -e dev -a plan"
+    echo "  target=vpc $0 -e dev -a plan"
+    echo "  target=ecs $0 -e dev -a plan"
     echo "  target=all $0 -e prod -a apply"
     exit 1
 }
@@ -63,8 +66,8 @@ if [[ ! "$ACTION" =~ ^(plan|apply|destroy)$ ]]; then
 fi
 
 # ターゲットの検証
-if [[ ! "$TARGET" =~ ^(s3|all)$ ]]; then
-    echo "エラー: ターゲットは 's3' または 'all' を指定してください"
+if [[ ! "$TARGET" =~ ^(s3|ecr|vpc|ecs|all)$ ]]; then
+    echo "エラー: ターゲットは 's3', 'ecr', 'vpc', 'ecs', または 'all' を指定してください"
     exit 1
 fi
 
@@ -92,14 +95,14 @@ if [[ "$TARGET" == "all" ]]; then
             ;;
         apply)
             if [[ "$AUTO_APPROVE" == "true" ]]; then
-                terragrunt apply --all --terragrunt-non-interactive
+                terragrunt apply --all --non-interactive
             else
                 terragrunt apply --all
             fi
             ;;
         destroy)
             if [[ "$AUTO_APPROVE" == "true" ]]; then
-                terragrunt destroy --all --terragrunt-non-interactive
+                terragrunt destroy --all --non-interactive
             else
                 terragrunt destroy --all
             fi
@@ -112,14 +115,14 @@ else
             ;;
         apply)
             if [[ "$AUTO_APPROVE" == "true" ]]; then
-                terragrunt apply --terragrunt-non-interactive
+                terragrunt apply -auto-approve --non-interactive
             else
                 terragrunt apply
             fi
             ;;
         destroy)
             if [[ "$AUTO_APPROVE" == "true" ]]; then
-                terragrunt destroy --terragrunt-non-interactive
+                terragrunt destroy --auto-approve --non-interactive
             else
                 terragrunt destroy
             fi

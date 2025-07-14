@@ -1,11 +1,11 @@
 # Terragrunt Makefile
-# AWS S3環境の管理用
+# AWS S3およびECR環境の管理用
 
-.PHONY: help dev-plan dev-apply dev-apply-auto dev-destroy prod-plan prod-apply prod-apply-auto prod-destroy init clean validate format status dev-workflow
+.PHONY: help dev-plan dev-apply dev-apply-auto dev-destroy prod-plan prod-apply prod-apply-auto prod-destroy init clean validate format status dev-workflow build-dev build-prod build-and-push-dev build-and-push-prod deploy-dev-complete deploy-prod-complete get-alb-url-dev get-alb-url-prod
 
 # デフォルトターゲット
 help:
-	@echo "Terragrunt S3プロジェクト 管理コマンド"
+	@echo "Terragrunt プロジェクト 管理コマンド"
 	@echo ""
 	@echo "開発環境:"
 	@echo "  make dev-plan      - 開発環境のプランを表示"
@@ -19,13 +19,36 @@ help:
 	@echo "  make prod-apply-auto - 本番環境にリソースを作成（自動承認）"
 	@echo "  make prod-destroy  - 本番環境のリソースを削除"
 	@echo ""
+	@echo "Docker & ECR:"
+	@echo "  make build-dev     - 開発環境用Dockerイメージをビルド"
+	@echo "  make build-prod    - 本番環境用Dockerイメージをビルド"
+	@echo "  make build-and-push-dev  - 開発環境にビルド&プッシュ"
+	@echo "  make build-and-push-prod - 本番環境にビルド&プッシュ"
+	@echo ""
+	@echo "完全デプロイ (VPC + ECR + ECS Fargate):"
+	@echo "  make deploy-dev-complete  - 開発環境の完全デプロイ"
+	@echo "  make deploy-prod-complete - 本番環境の完全デプロイ"
+	@echo "  make deploy-infra-dev     - 開発環境のインフラのみデプロイ"
+	@echo "  make deploy-infra-prod    - 本番環境のインフラのみデプロイ"
+	@echo ""
+	@echo "アクセス情報:"
+	@echo "  make get-alb-url-dev      - 開発環境のALB URLを取得"
+	@echo "  make get-alb-url-prod     - 本番環境のALB URLを取得"
+	@echo ""
 	@echo "環境変数:"
 	@echo "  target=s3          - 特定のモジュール（s3）のみ実行"
+	@echo "  target=ecr         - 特定のモジュール（ecr）のみ実行"
+	@echo "  target=vpc         - 特定のモジュール（vpc）のみ実行"
+	@echo "  target=ecs         - 特定のモジュール（ecs）のみ実行"
 	@echo "  target=all         - 全モジュール実行（デフォルト）"
+	@echo "  IMAGE_TAG=v1.0.0   - Dockerイメージのタグ（デフォルト: latest）"
 	@echo ""
 	@echo "使用例:"
 	@echo "  target=s3 make dev-plan    - S3モジュールのみプラン"
-	@echo "  target=all make dev-apply  - 全モジュール適用"
+	@echo "  target=ecr make dev-apply  - ECRモジュールのみ適用"
+	@echo "  target=vpc make dev-apply  - VPCモジュールのみ適用"
+	@echo "  target=ecs make dev-apply  - ECSモジュールのみ適用"
+	@echo "  IMAGE_TAG=v1.0.0 make build-and-push-dev - 特定タグでビルド&プッシュ"
 	@echo ""
 	@echo "その他:"
 	@echo "  make init          - 必要な前提条件をチェック"
@@ -35,6 +58,11 @@ help:
 	@echo "  make status        - 全環境のリソース状況を確認"
 	@echo "  make setup-state   - Terraformステート用リソースを作成"
 	@echo "  make dev-workflow  - 開発環境での完全なワークフロー（plan→apply）"
+	@echo ""
+	@echo "注意:"
+	@echo "  - 従来のDocker builderを使用します（BuildKit無効）"
+	@echo "  - Dockerバージョン 20.10+ を推奨します"
+	@echo "  - BuildKitを使用する場合は docker buildx をインストールしてください"
 
 # 前提条件チェック
 init:
@@ -42,7 +70,9 @@ init:
 	@command -v aws >/dev/null 2>&1 || { echo "AWS CLIがインストールされていません"; exit 1; }
 	@command -v terragrunt >/dev/null 2>&1 || { echo "Terragruntがインストールされていません"; exit 1; }
 	@command -v terraform >/dev/null 2>&1 || { echo "Terraformがインストールされていません"; exit 1; }
+	@command -v docker >/dev/null 2>&1 || { echo "Dockerがインストールされていません"; exit 1; }
 	@aws sts get-caller-identity >/dev/null 2>&1 || { echo "AWS認証情報が設定されていません"; exit 1; }
+	@echo "Docker BuildKit: disabled (legacy builder)"
 	@echo "✅ 全ての前提条件が満たされています"
 
 # Terraformステート用リソースの作成
@@ -241,7 +271,7 @@ status:
 					echo "リソース一覧:"; \
 					echo "$$STATE_OUTPUT" | sed 's/^/  /'; \
 				else \
-					if [ $$STATE_EXIT_CODE -ne 0 ]; then \
+				 if [ $$STATE_EXIT_CODE -ne 0 ]; then \
 						echo "  初期化エラー (exit code: $$STATE_EXIT_CODE)"; \
 						if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
 							echo "  エラー詳細: $$STATE_OUTPUT"; \
@@ -260,3 +290,107 @@ status:
 dev-workflow: dev-plan
 	@echo "開発環境でのプラン確認が完了しました"
 	@read -p "適用しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] && export target=$${target:-all} && make dev-apply || echo "スキップしました"
+
+# Docker & ECR コマンド
+build-dev:
+	@echo "=== 開発環境用Dockerイメージをビルド中 ==="
+	@IMAGE_TAG=$${IMAGE_TAG:-latest}; \
+	DOCKER_BUILDKIT=0 docker build -t helloworld-dev:$$IMAGE_TAG ../docker/helloworld
+	@echo "✅ 開発環境用イメージビルド完了"
+
+build-prod:
+	@echo "=== 本番環境用Dockerイメージをビルド中 ==="
+	@IMAGE_TAG=$${IMAGE_TAG:-latest}; \
+	DOCKER_BUILDKIT=0 docker build -t helloworld-prod:$$IMAGE_TAG ../docker/helloworld
+	@echo "✅ 本番環境用イメージビルド完了"
+
+build-and-push-dev: init
+	@echo "=== 開発環境にDockerイメージをビルド&プッシュ中 ==="
+	@IMAGE_TAG=$${IMAGE_TAG:-latest}; \
+	../scripts/build-and-push.sh dev $$IMAGE_TAG
+	@echo "✅ 開発環境へのプッシュ完了"
+
+build-and-push-prod: init
+	@echo "=== 本番環境にDockerイメージをビルド&プッシュ中 ==="
+	@IMAGE_TAG=$${IMAGE_TAG:-latest}; \
+	../scripts/build-and-push.sh prod $$IMAGE_TAG
+	@echo "✅ 本番環境へのプッシュ完了"
+
+# ECRリポジトリ作成 + Dockerプッシュ + ECS Fargateの完全ワークフロー
+deploy-dev-complete: 
+	@echo "=== 開発環境の完全デプロイワークフロー ==="
+	@echo "1. ECRリポジトリ作成..."
+	@export target=ecr; make dev-apply-auto
+	@echo "2. Dockerイメージビルド&プッシュ..."
+	@IMAGE_TAG=$${IMAGE_TAG:-latest}; make build-and-push-dev
+	@echo "3. 他のリソースをデプロイ..."
+	@make dev-apply-auto
+	@echo "✅ 開発環境の完全デプロイ完了"
+
+deploy-prod-complete:
+	@echo "=== 本番環境の完全デプロイワークフロー ==="
+	@echo "⚠️  本番環境にデプロイしようとしています"
+	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
+	@echo "1. ECRリポジトリ作成..."
+	@export target=ecr; make prod-apply-auto
+	@echo "2. Dockerイメージビルド&プッシュ..."
+	@IMAGE_TAG=$${IMAGE_TAG:-latest}; make build-and-push-prod
+	@echo "3. 他のリソースをデプロイ..."
+	@make prod-apply-auto
+	@echo "✅ 本番環境の完全デプロイ完了"
+
+# インフラのみデプロイ（VPC + ECR + ECS、Dockerプッシュなし）
+deploy-infra-dev:
+	@echo "=== 開発環境のインフラデプロイ ==="
+	@echo "1. VPCリソース作成..."
+	@export target=vpc; make dev-apply-auto
+	@echo "2. ECRリポジトリ作成..."
+	@export target=ecr; make dev-apply-auto
+	@echo "3. ECSクラスター・サービス作成..."
+	@export target=ecs; make dev-apply-auto
+	@echo "✅ 開発環境のインフラデプロイ完了"
+
+deploy-infra-prod:
+	@echo "=== 本番環境のインフラデプロイ ==="
+	@echo "⚠️  本番環境にデプロイしようとしています"
+	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
+	@echo "1. VPCリソース作成..."
+	@export target=vpc; make prod-apply-auto
+	@echo "2. ECRリポジトリ作成..."
+	@export target=ecr; make prod-apply-auto
+	@echo "3. ECSクラスター・サービス作成..."
+	@export target=ecs; make prod-apply-auto
+	@echo "✅ 本番環境のインフラデプロイ完了"
+
+# ALB URL取得コマンド
+get-alb-url-dev:
+	@echo "=== 開発環境のALB URL取得 ==="
+	@cd ./environments/dev/vpc && \
+	ALB_DNS=$$(terragrunt output -raw alb_dns_name 2>/dev/null); \
+	if [ -n "$$ALB_DNS" ] && [ "$$ALB_DNS" != "null" ]; then \
+		echo "🌐 開発環境のHelloWorldアプリケーションURL:"; \
+		echo "   http://$$ALB_DNS"; \
+		echo ""; \
+		echo "📋 アクセス方法:"; \
+		echo "   curl http://$$ALB_DNS"; \
+		echo "   または、ブラウザで上記URLにアクセスしてください"; \
+	else \
+		echo "❌ ALBが見つかりません。まずALBをデプロイしてください:"; \
+		echo "   make deploy-infra-dev"; \
+	fi
+
+get-alb-url-prod:
+	@echo "=== 本番環境のALB URL取得 ==="
+	@cd ./environments/prod/vpc && \
+	ALB_DNS=$$(terragrunt output -raw alb_dns_name 2>/dev/null); \
+	if [ -n "$$ALB_DNS" ] && [ "$$ALB_DNS" != "null" ]; then \
+		echo "🌐 本番環境のHelloWorldアプリケーションURL:"; \
+		echo "   http://$$ALB_DNS"; \
+		echo ""; \
+		echo "📋 アクセス方法:"; \
+		echo "   curl http://$$ALB_DNS"; \
+		echo "   または、ブラウザで上記URLにアクセスしてください"; \
+	else \
+		echo "❌ ALBが見つかりません。まずALBをデプロイしてください:"; \
+		echo "   make deploy-infra-prod"; \
+	fi
