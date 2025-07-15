@@ -8,6 +8,9 @@ terraform {
 
 dependency "load_balancer" {
   config_path = "../load-balancer"
+  mock_outputs = {
+    load_balancer_arn = "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:loadbalancer/app/mock-alb/123456789012345678"
+  }
 }
 
 inputs = {

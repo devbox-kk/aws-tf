@@ -12,6 +12,9 @@ dependency "vpc" {
 
 dependency "security_group" {
   config_path = "../security-group"
+  mock_outputs = {
+    security_group_id = "sg-mock"
+  }
 }
 
 inputs = {

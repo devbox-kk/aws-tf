@@ -10,6 +10,14 @@ dependency "vpc" {
   config_path = "../vpc"
 }
 
+dependency "load_balancer" {
+  config_path = "../load-balancer"
+}
+
+dependency "security_group" {
+  config_path = "../security-group"
+}
+
 dependency "ecr" {
   config_path = "../ecr"
 }
@@ -38,8 +46,8 @@ inputs = {
   allowed_cidr_blocks   = [dependency.vpc.outputs.vpc_cidr_block]
   
   # ALB設定
-  target_group_arn      = dependency.vpc.outputs.target_group_arn
-  alb_security_group_id = dependency.vpc.outputs.alb_security_group_id
+  target_group_arn      = dependency.load_balancer.outputs.target_group_arns[0]
+  alb_security_group_id = dependency.security_group.outputs.security_group_id
   
   # 環境変数
   environment_variables = [

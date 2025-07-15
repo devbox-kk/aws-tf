@@ -12,8 +12,22 @@ dependency "vpc" {
   mock_outputs = {
     vpc_id                = "vpc-mock"
     public_subnet_ids     = ["subnet-mock-1", "subnet-mock-2"]
-    target_group_arn      = "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/mock/123456789012345"
-    alb_security_group_id = "sg-mock"
+  }
+}
+
+dependency "load_balancer" {
+  config_path = "../load-balancer"
+  
+  mock_outputs = {
+    target_group_arns = ["arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/mock/123456789012345"]
+  }
+}
+
+dependency "security_group" {
+  config_path = "../security-group"
+  
+  mock_outputs = {
+    security_group_id = "sg-mock"
   }
 }
 
@@ -49,8 +63,8 @@ inputs = {
   allowed_cidr_blocks   = ["0.0.0.0/0"]
   
   # ALB設定
-  target_group_arn      = dependency.vpc.outputs.target_group_arn
-  alb_security_group_id = dependency.vpc.outputs.alb_security_group_id
+  target_group_arn      = dependency.load_balancer.outputs.target_group_arns[0]
+  alb_security_group_id = dependency.security_group.outputs.security_group_id
   
   # 環境変数
   environment_variables = [
