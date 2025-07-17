@@ -9,14 +9,15 @@ variable "tags" {
   default     = {}
 }
 
-variable "versioning_enabled" {
-  description = "Enable versioning for the S3 bucket"
-  type        = bool
-  default     = true
-}
 
 variable "block_public_access" {
   description = "Whether to block public access to the S3 bucket"
   type        = bool
   default     = true
+}
+
+variable "enable_website_hosting" {
+  description = "Whether to enable static website hosting"
+  type        = bool
+  default     = false
 }

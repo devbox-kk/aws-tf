@@ -37,10 +37,11 @@ resource "aws_lb" "network" {
 resource "aws_lb_target_group" "main" {
   count = length(var.target_groups)
 
-  name     = var.target_groups[count.index].name
-  port     = var.target_groups[count.index].port
-  protocol = var.target_groups[count.index].protocol
-  vpc_id   = var.vpc_id
+  name        = var.target_groups[count.index].name
+  port        = var.target_groups[count.index].port
+  protocol    = var.target_groups[count.index].protocol
+  vpc_id      = var.vpc_id
+  target_type = "ip"
 
   health_check {
     enabled             = var.target_groups[count.index].health_check.enabled

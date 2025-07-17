@@ -61,6 +61,10 @@ resource "aws_iam_instance_profile" "main" {
   name = var.instance_profile_name
   role = var.create_role ? aws_iam_role.main[0].name : var.existing_role_name
 
+  lifecycle {
+    create_before_destroy = true
+  }
+
   tags = merge(var.tags, {
     Name = var.instance_profile_name
   })

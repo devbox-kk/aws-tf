@@ -23,6 +23,10 @@ resource "aws_cloudwatch_log_group" "ecs" {
   name              = "/ecs/${var.cluster_name}"
   retention_in_days = var.log_retention_days
 
+  lifecycle {
+    create_before_destroy = true
+  }
+
   tags = var.tags
 }
 
@@ -48,12 +52,11 @@ resource "aws_ecs_task_definition" "main" {
           protocol      = "tcp"
         }
       ]
-
       logConfiguration = {
         logDriver = "awslogs"
         options = {
           awslogs-group         = aws_cloudwatch_log_group.ecs.name
-          awslogs-region        = data.aws_region.current.name
+          awslogs-region        = data.aws_region.current.id
           awslogs-stream-prefix = "ecs"
         }
       }

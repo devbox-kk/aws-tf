@@ -9,13 +9,14 @@ terraform {
 
 inputs = {
   bucket_name = "my-prod-bucket-20250702"
+  
+  # Static website hosting configuration
+  enable_website_hosting = true
+  block_public_access    = false
 
   tags = {
     Environment = "prod"
     Project     = "aws-tf"
     ManagedBy   = "terragrunt"
   }
-
-  versioning_enabled  = true
-  block_public_access = true
 }

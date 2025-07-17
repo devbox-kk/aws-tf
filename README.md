@@ -11,6 +11,7 @@ TerragruntとTerraformを使用してS3バケットを管理するプロジェ�
 - [x] GitHub Actions CI/CD パイプライン
 - [x] 定期的なdev環境削除（コスト削減）
 - [x] プルリクエスト時の自動plan実行
+- [x] 静的ウェブサイトホスティング対応
 - [ ] tokenをapptokenにする
 
 ## 📁 プロジェクト構造
@@ -18,6 +19,12 @@ TerragruntとTerraformを使用してS3バケットを管理するプロジェ�
 ```
 aws-tf/
 ├── README.md
+├── deploy-website.sh              # 静的ウェブサイトデプロイスクリプト
+├── sample-website/                # 静的ウェブサイトファイル
+│   ├── index.html
+│   ├── styles.css
+│   ├── script.js
+│   └── error.html
 └── terragrunt/
     ├── USAGE.md                    # 詳細な使用方法
     ├── MAKE_COMMANDS.md            # Makeコマンドリファレンス
@@ -48,6 +55,52 @@ make dev-apply
 ### Method 2: 実行スクリプト
 ```bash
 ./run.sh -e dev -a plan
+./run.sh -e dev -a apply
+```
+
+### 🌐 静的ウェブサイトデプロイ
+
+このプロジェクトには、S3バケットに静的ウェブサイトをデプロイする機能が含まれています。
+
+#### 対象ファイル
+- `sample-website/index.html` - メインページ
+- `sample-website/styles.css` - スタイルシート
+- `sample-website/script.js` - JavaScriptファイル
+- `sample-website/error.html` - エラーページ
+
+#### デプロイ方法
+
+**Option 1: 自動デプロイスクリプト**
+```bash
+# 開発環境にデプロイ
+./deploy-website.sh dev
+
+# 本番環境にデプロイ
+./deploy-website.sh prod
+```
+
+**Option 2: 手動デプロイ**
+```bash
+# S3モジュールディレクトリに移動
+cd terragrunt/environments/dev/s3
+
+# 初期化
+terragrunt init
+
+# プランの確認
+terragrunt plan
+
+# デプロイ
+terragrunt apply
+
+# ウェブサイトURLの確認
+terragrunt output website_endpoint
+```
+
+#### 設定のポイント
+- 静的ウェブサイトホスティングを有効にするには、`enable_website_hosting = true` を設定
+- パブリックアクセスを許可するには、`block_public_access = false` を設定
+- バケットポリシーが自動的に設定され、ウェブサイトファイルへのパブリック読み取りアクセスが許可されます
 ./run.sh -e dev -a apply
 ```
 
@@ -87,5 +140,7 @@ make dev-apply
 - S3バケット
   - 暗号化有効（AES256）
   - バージョニング有効
-  - パブリックアクセスブロック設定
+  - パブリックアクセスブロック設定（ウェブサイトホスティング時は調整）
   - 環境別タグ付け
+  - 静的ウェブサイトホスティング対応
+  - 自動ファイルアップロード（HTML, CSS, JavaScript）
