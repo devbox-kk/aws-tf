@@ -28,10 +28,10 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
 resource "aws_s3_bucket_public_access_block" "main" {
   bucket = aws_s3_bucket.main.id
   
-  block_public_acls       = var.enable_website_hosting ? false : var.block_public_access
-  block_public_policy     = var.enable_website_hosting ? false : var.block_public_access
-  ignore_public_acls      = var.enable_website_hosting ? false : var.block_public_access
-  restrict_public_buckets = var.enable_website_hosting ? false : var.block_public_access
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
 }
 
 # Static website hosting configuration
@@ -80,26 +80,5 @@ resource "aws_s3_object" "error_html" {
   etag         = filemd5("${path.module}/../../../../../../../sample-website/error.html")
 }
 
-# Bucket policy for public read access to website files
-resource "aws_s3_bucket_policy" "website_policy" {
-  count  = var.enable_website_hosting ? 1 : 0
-  bucket = aws_s3_bucket.main.id
-
-  depends_on = [
-    aws_s3_bucket_public_access_block.main
-  ]
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid       = "PublicReadGetObject"
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "s3:GetObject"
-        Resource  = "${aws_s3_bucket.main.arn}/*"
-      }
-    ]
-  })
-}
+# Bucket policy will be managed by CloudFront module
 
