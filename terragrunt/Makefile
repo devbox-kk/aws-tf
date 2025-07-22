@@ -1,7 +1,7 @@
 # Terragrunt Makefile
 # AWS S3およびECR環境の管理用
 
-.PHONY: help dev-plan dev-apply dev-apply-auto dev-destroy prod-plan prod-apply prod-apply-auto prod-destroy init clean validate format status dev-workflow build-dev build-prod build-and-push-dev build-and-push-prod deploy-dev-complete deploy-prod-complete get-alb-url-dev get-alb-url-prod
+.PHONY: help dev-plan dev-apply dev-apply-auto dev-destroy prod-plan prod-apply prod-apply-auto prod-destroy init clean validate format status dev-workflow build-dev build-prod build-and-push-dev build-and-push-prod deploy-dev-complete deploy-prod-complete get-alb-url-dev get-alb-url-prod get-cloudfront-url-dev get-cloudfront-url-prod
 
 # デフォルトターゲット
 help:
@@ -34,24 +34,26 @@ help:
 	@echo "アクセス情報:"
 	@echo "  make get-alb-url-dev      - 開発環境のALB URLを取得"
 	@echo "  make get-alb-url-prod     - 本番環境のALB URLを取得"
+	@echo "  make get-cloudfront-url-dev  - 開発環境のCloudFront URLを取得"
+	@echo "  make get-cloudfront-url-prod - 本番環境のCloudFront URLを取得"
 	@echo ""
 	@echo "環境変数:"
-	@echo "  target=s3          - 特定のモジュール（s3）のみ実行"
-	@echo "  target=ecr         - 特定のモジュール（ecr）のみ実行"
-	@echo "  target=vpc         - 特定のモジュール（vpc）のみ実行"
-	@echo "  target=ecs         - 特定のモジュール（ecs）のみ実行"
-	@echo "  target=iam         - 特定のモジュール（iam）のみ実行"
-	@echo "  target=security-group - 特定のモジュール（security-group）のみ実行"
-	@echo "  target=load-balancer - 特定のモジュール（load-balancer）のみ実行"
-	@echo "  target=cloudwatch  - 特定のモジュール（cloudwatch）のみ実行"
+	@echo "  target=source      - 特定のモジュール（ECR、S3）のみ実行"
+	@echo "  target=iam         - 特定のモジュール（IAM）のみ実行"
+	@echo "  target=network     - 特定のモジュール（VPC、SG、LB）のみ実行"
+	@echo "  target=log         - 特定のモジュール（CloudWatch）のみ実行"
+	@echo "  target=servise_staticweb  - 特定のモジュール（CloudFront、Cognito）のみ実行"
+	@echo "  target=servise_dynamicweb - 特定のモジュール（ECS）のみ実行"
 	@echo "  target=all         - 全モジュール実行（デフォルト）"
 	@echo "  IMAGE_TAG=v1.0.0   - Dockerイメージのタグ（デフォルト: latest）"
 	@echo ""
 	@echo "使用例:"
-	@echo "  target=s3 make dev-plan    - S3モジュールのみプラン"
-	@echo "  target=ecr make dev-apply  - ECRモジュールのみ適用"
-	@echo "  target=vpc make dev-apply  - VPCモジュールのみ適用"
-	@echo "  target=ecs make dev-apply  - ECSモジュールのみ適用"
+	@echo "  target=source make dev-plan      - ソースモジュール（ECR、S3）のみプラン"
+	@echo "  target=iam make dev-apply        - IAMモジュールのみ適用"
+	@echo "  target=network make dev-apply    - ネットワークモジュール（VPC、SG、LB）のみ適用"
+	@echo "  target=log make dev-apply        - ログモジュール（CloudWatch）のみ適用"
+	@echo "  target=servise_staticweb make dev-apply  - 静的Webサービスモジュールのみ適用"
+	@echo "  target=servise_dynamicweb make dev-apply - 動的Webサービスモジュール（ECS）のみ適用"
 	@echo "  IMAGE_TAG=v1.0.0 make build-and-push-dev - 特定タグでビルド&プッシュ"
 	@echo ""
 	@echo "その他:"
@@ -96,65 +98,65 @@ setup-state:
 # 開発環境 - プラン
 dev-plan: init
 	@echo "=== Terragrunt plan を実行中 (環境: dev) ==="
-	@export target=$${target:-all}; ./run.sh -e dev -a plan
+	@export target=$${target:-all}; ../scripts/terragrunt_run.sh -e dev -a plan
 
 # 開発環境 - 適用
 dev-apply: init
 	@echo "=== Terragrunt apply を実行中 (環境: dev) ==="
-	@export target=$${target:-all}; ./run.sh -e dev -a apply
+	@export target=$${target:-all}; ../scripts/terragrunt_run.sh -e dev -a apply
 
 # 開発環境 - 適用（自動承認）
 dev-apply-auto: init
 	@echo "=== Terragrunt apply を実行中 (環境: dev, 自動承認) ==="
-	@export target=$${target:-all}; ./run.sh -e dev -a apply -y
+	@export target=$${target:-all}; ../scripts/terragrunt_run.sh -e dev -a apply -y
 
 # 開発環境 - 削除
 dev-destroy: init
 	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
 		echo "⚠️  開発環境のリソースを削除中（CI環境）"; \
-		export target=$${target:-all}; ./run.sh -e dev -a destroy -y; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e dev -a destroy -y; \
 	else \
 		echo "⚠️  開発環境のリソースを削除しようとしています"; \
 		read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
-		export target=$${target:-all}; ./run.sh -e dev -a destroy -y; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e dev -a destroy -y; \
 	fi
 
 # 本番環境 - プラン
 prod-plan: init
 	@echo "=== Terragrunt plan を実行中 (環境: prod) ==="
-	@export target=$${target:-all}; ./run.sh -e prod -a plan
+	@export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a plan
 
 # 本番環境 - 適用
 prod-apply: init
 	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
 		echo "⚠️  本番環境にリソースを作成中（CI環境）"; \
-		export target=$${target:-all}; ./run.sh -e prod -a apply; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a apply; \
 	else \
 		echo "⚠️  本番環境にリソースを作成しようとしています"; \
 		read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
-		export target=$${target:-all}; ./run.sh -e prod -a apply; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a apply; \
 	fi
 
 # 本番環境 - 適用（自動承認）
 prod-apply-auto: init
 	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
 		echo "⚠️  本番環境にリソースを作成中（CI環境、自動承認）"; \
-		export target=$${target:-all}; ./run.sh -e prod -a apply -y; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a apply -y; \
 	else \
 		echo "⚠️  本番環境にリソースを作成しようとしています（自動承認）"; \
 		read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
-		export target=$${target:-all}; ./run.sh -e prod -a apply -y; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a apply -y; \
 	fi
 
 # 本番環境 - 削除
 prod-destroy: init
 	@if [ "$$CI" = "true" ] || [ "$$GITHUB_ACTIONS" = "true" ]; then \
 		echo "🚨 本番環境のリソースを削除中（CI環境）"; \
-		export target=$${target:-all}; ./run.sh -e prod -a destroy -y; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a destroy -y; \
 	else \
 		echo "🚨 本番環境のリソースを削除しようとしています"; \
 		read -p "本当に続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }; \
-		export target=$${target:-all}; ./run.sh -e prod -a destroy -y; \
+		export target=$${target:-all}; ../scripts/terragrunt_run.sh -e prod -a destroy -y; \
 	fi
 
 # 設定ファイルの検証
@@ -323,8 +325,8 @@ build-and-push-prod: init
 # ECRリポジトリ作成 + Dockerプッシュ + ECS Fargateの完全ワークフロー
 deploy-dev-complete: 
 	@echo "=== 開発環境の完全デプロイワークフロー ==="
-	@echo "1. ECRリポジトリ作成..."
-	@export target=ecr; make dev-apply-auto
+	@echo "1. ソースリソース（ECR、S3）作成..."
+	@export target=source; make dev-apply-auto
 	@echo "2. Dockerイメージビルド&プッシュ..."
 	@IMAGE_TAG=$${IMAGE_TAG:-latest}; make build-and-push-dev
 	@echo "3. 他のリソースをデプロイ..."
@@ -337,8 +339,8 @@ deploy-prod-complete:
 	@echo "=== 本番環境の完全デプロイワークフロー ==="
 	@echo "⚠️  本番環境にデプロイしようとしています"
 	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
-	@echo "1. ECRリポジトリ作成..."
-	@export target=ecr; make prod-apply-auto
+	@echo "1. ソースリソース（ECR、S3）作成..."
+	@export target=source; make prod-apply-auto
 	@echo "2. Dockerイメージビルド&プッシュ..."
 	@IMAGE_TAG=$${IMAGE_TAG:-latest}; make build-and-push-prod
 	@echo "3. 他のリソースをデプロイ..."
@@ -348,31 +350,31 @@ deploy-prod-complete:
 # インフラのみデプロイ（VPC + ECR + ECS、Dockerプッシュなし）
 deploy-infra-dev:
 	@echo "=== 開発環境のインフラデプロイ ==="
-	@echo "1. VPCリソース作成..."
-	@export target=vpc; make dev-apply-auto
-	@echo "2. ECRリポジトリ作成..."
-	@export target=ecr; make dev-apply-auto
-	@echo "3. ECSクラスター・サービス作成..."
-	@export target=ecs; make dev-apply-auto
+	@echo "1. ネットワークリソース（VPC、SG、LB）作成..."
+	@export target=network; make dev-apply-auto
+	@echo "2. ソースリソース（ECR、S3）作成..."
+	@export target=source; make dev-apply-auto
+	@echo "3. 動的Webサービス（ECS）作成..."
+	@export target=servise_dynamicweb; make dev-apply-auto
 	@echo "✅ 開発環境のインフラデプロイ完了"
 
 deploy-infra-prod:
 	@echo "=== 本番環境のインフラデプロイ ==="
 	@echo "⚠️  本番環境にデプロイしようとしています"
 	@read -p "続行しますか？ (y/N): " confirm && [ "$$confirm" = "y" ] || { echo "キャンセルしました"; exit 1; }
-	@echo "1. VPCリソース作成..."
-	@export target=vpc; make prod-apply-auto
-	@echo "2. ECRリポジトリ作成..."
-	@export target=ecr; make prod-apply-auto
-	@echo "3. ECSクラスター・サービス作成..."
-	@export target=ecs; make prod-apply-auto
+	@echo "1. ネットワークリソース（VPC、SG、LB）作成..."
+	@export target=network; make prod-apply-auto
+	@echo "2. ソースリソース（ECR、S3）作成..."
+	@export target=source; make prod-apply-auto
+	@echo "3. 動的Webサービス（ECS）作成..."
+	@export target=servise_dynamicweb; make prod-apply-auto
 	@echo "✅ 本番環境のインフラデプロイ完了"
 
 # ALB URL取得コマンド
 get-alb-url-dev:
 	@echo "=== 開発環境のALB URL取得 ==="
-	@cd ./environments/dev/vpc && \
-	ALB_DNS=$$(terragrunt output -raw alb_dns_name 2>/dev/null); \
+	@cd ./environments/dev/network && \
+	ALB_DNS=$$(terragrunt output -raw load_balancer_dns_name 2>/dev/null); \
 	if [ -n "$$ALB_DNS" ] && [ "$$ALB_DNS" != "null" ]; then \
 		echo "🌐 開発環境のHelloWorldアプリケーションURL:"; \
 		echo "   http://$$ALB_DNS"; \
@@ -387,8 +389,8 @@ get-alb-url-dev:
 
 get-alb-url-prod:
 	@echo "=== 本番環境のALB URL取得 ==="
-	@cd ./environments/prod/vpc && \
-	ALB_DNS=$$(terragrunt output -raw alb_dns_name 2>/dev/null); \
+	@cd ./environments/prod/network && \
+	ALB_DNS=$$(terragrunt output -raw load_balancer_dns_name 2>/dev/null); \
 	if [ -n "$$ALB_DNS" ] && [ "$$ALB_DNS" != "null" ]; then \
 		echo "🌐 本番環境のHelloWorldアプリケーションURL:"; \
 		echo "   http://$$ALB_DNS"; \
@@ -399,4 +401,47 @@ get-alb-url-prod:
 	else \
 		echo "❌ ALBが見つかりません。まずALBをデプロイしてください:"; \
 		echo "   make deploy-infra-prod"; \
+	fi
+
+# CloudFront URL取得コマンド
+get-cloudfront-url-dev:
+	@echo "=== 開発環境のCloudFront URL取得 ==="
+	@cd ./environments/dev/servise_staticweb && \
+	CLOUDFRONT_URL=$$(terragrunt output -raw cloudfront_url 2>/dev/null); \
+	if [ -n "$$CLOUDFRONT_URL" ] && [ "$$CLOUDFRONT_URL" != "null" ]; then \
+		echo "🌐 開発環境の静的WebサイトURL:"; \
+		echo "   $$CLOUDFRONT_URL"; \
+		echo ""; \
+		echo "📋 アクセス方法:"; \
+		echo "   curl $$CLOUDFRONT_URL"; \
+		echo "   または、ブラウザで上記URLにアクセスしてください"; \
+		echo ""; \
+		DOMAIN_NAME=$$(terragrunt output -raw cloudfront_domain_name 2>/dev/null); \
+		if [ -n "$$DOMAIN_NAME" ]; then \
+			echo "📝 CloudFrontドメイン名: $$DOMAIN_NAME"; \
+		fi; \
+	else \
+		echo "❌ CloudFrontが見つかりません。まずCloudFrontをデプロイしてください:"; \
+		echo "   target=servise_staticweb make dev-apply"; \
+	fi
+
+get-cloudfront-url-prod:
+	@echo "=== 本番環境のCloudFront URL取得 ==="
+	@cd ./environments/prod/servise_staticweb && \
+	CLOUDFRONT_URL=$$(terragrunt output -raw cloudfront_url 2>/dev/null); \
+	if [ -n "$$CLOUDFRONT_URL" ] && [ "$$CLOUDFRONT_URL" != "null" ]; then \
+		echo "🌐 本番環境の静的WebサイトURL:"; \
+		echo "   $$CLOUDFRONT_URL"; \
+		echo ""; \
+		echo "📋 アクセス方法:"; \
+		echo "   curl $$CLOUDFRONT_URL"; \
+		echo "   または、ブラウザで上記URLにアクセスしてください"; \
+		echo ""; \
+		DOMAIN_NAME=$$(terragrunt output -raw cloudfront_domain_name 2>/dev/null); \
+		if [ -n "$$DOMAIN_NAME" ]; then \
+			echo "📝 CloudFrontドメイン名: $$DOMAIN_NAME"; \
+		fi; \
+	else \
+		echo "❌ CloudFrontが見つかりません。まずCloudFrontをデプロイしてください:"; \
+		echo "   target=servise_staticweb make prod-apply"; \
 	fi
